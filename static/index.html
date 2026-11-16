@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pokédex com IA</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: #f4f4f6; color: #222; }
+  header { background: #e3350d; color: #fff; padding: 20px; text-align: center; }
+  header h1 { margin: 0; font-size: 1.8rem; }
+  main { max-width: 900px; margin: 0 auto; padding: 16px; }
+  section { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  h2 { margin-top: 0; font-size: 1.15rem; }
+  form { display: flex; gap: 8px; flex-wrap: wrap; }
+  input { flex: 1; min-width: 140px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; }
+  button { padding: 10px 16px; border: 0; border-radius: 8px; background: #e3350d; color: #fff; font-size: 1rem; cursor: pointer; }
+  button:disabled { opacity: .6; }
+  .cards { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+  .card { flex: 1; min-width: 240px; border: 1px solid #eee; border-radius: 12px; padding: 12px; text-align: center; }
+  .card img { width: 160px; height: 160px; object-fit: contain; }
+  .card h3 { margin: 4px 0; }
+  .tipo { display: inline-block; padding: 2px 10px; border-radius: 99px; background: #444; color: #fff; font-size: .8rem; margin: 2px; }
+  .stat { display: flex; align-items: center; gap: 6px; font-size: .85rem; margin: 3px 0; }
+  .stat span:first-child { width: 70px; text-align: left; }
+  .barra { flex: 1; background: #eee; border-radius: 4px; height: 8px; }
+  .barra div { background: #3b7dd8; height: 8px; border-radius: 4px; }
+  .vencedor { margin-top: 10px; font-weight: bold; text-align: center; }
+  pre { white-space: pre-wrap; background: #f7f7f9; padding: 12px; border-radius: 8px; margin: 12px 0 0; }
+  .erro { color: #c00; margin-top: 8px; }
+</style>
+</head>
+<body>
+<header><h1>Pokédex com IA</h1><div>Busque, compare e peça um time ao assistente</div></header>
+<main>
+  <section>
+    <h2>Buscar</h2>
+    <form id="f-busca"><input id="busca" placeholder="Nome ou número (ex.: pikachu, 6)" required><button>Buscar</button></form>
+    <div id="r-busca" class="cards"></div>
+  </section>
+  <section>
+    <h2>Comparar</h2>
+    <form id="f-comp"><input id="a" placeholder="Primeiro" required><input id="b" placeholder="Segundo" required><button>Comparar</button></form>
+    <div id="r-comp"></div>
+  </section>
+  <section>
+    <h2>Assistente</h2>
+    <form id="f-ia"><input id="pergunta" placeholder="Ex.: monta um time contra pedra" required><button>Perguntar</button></form>
+    <div id="r-ia"></div>
+  </section>
+</main>
+<script>
+const NOMES = { hp: "HP", ataque: "Ataque", defesa: "Defesa", ataque_especial: "Atq. Esp.", defesa_especial: "Def. Esp.", velocidade: "Velocidade" };
+
+function card(p) {
+  const stats = Object.keys(NOMES).map(k =>
+    `<div class="stat"><span>${NOMES[k]}</span><div class="barra"><div style="width:${Math.min(p.status[k] / 1.6, 100)}%"></div></div><span>${p.status[k]}</span></div>`
+  ).join("");
+  return `<div class="card">
+    <img src="${p.imagem}" alt="${p.nome}">
+    <h3>#${p.numero} ${p.nome}</h3>
+    <div>${p.tipos.map(t => `<span class="tipo">${t}</span>`).join("")}</div>
+    <p>${p.altura_m} m · ${p.peso_kg} kg · total ${p.status.total}</p>
+    ${stats}
+  </div>`;
+}
+
+async function chamar(url, opcoes) {
+  const r = await fetch(url, opcoes);
+  const dados = await r.json();
+  if (!r.ok) throw new Error(dados.detail || "Erro");
+  return dados;
+}
+
+function ligar(formId, alvoId, acao) {
+  const form = document.getElementById(formId), alvo = document.getElementById(alvoId);
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const botao = form.querySelector("button");
+    botao.disabled = true; alvo.innerHTML = "Carregando...";
+    try { alvo.innerHTML = await acao(); }
+    catch (err) { alvo.innerHTML = `<div class="erro">${err.message}</div>`; }
+    botao.disabled = false;
+  });
+}
+
+ligar("f-busca", "r-busca", async () =>
+  card(await chamar(`/api/pokemon/${encodeURIComponent(busca.value.trim().toLowerCase())}`)));
+
+ligar("f-comp", "r-comp", async () => {
+  const d = await chamar(`/api/comparar?a=${encodeURIComponent(a.value.trim().toLowerCase())}&b=${encodeURIComponent(b.value.trim().toLowerCase())}`);
+  return `<div class="cards">${card(d.a)}${card(d.b)}</div><div class="vencedor">Mais forte no total: ${d.vencedor}</div>`;
+});
+
+ligar("f-ia", "r-ia", async () => {
+  const d = await chamar("/api/assistente", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pergunta: pergunta.value }) });
+  const pre = document.createElement("pre"); pre.textContent = d.resposta; return pre.outerHTML;
+});
+</script>
+</body>
+</html>

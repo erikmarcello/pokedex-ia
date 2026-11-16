@@ -16,6 +16,11 @@ class Status:
                 + self.defesa_especial + self.velocidade)
 
 
+def _imagem(sprites: dict) -> str:
+    arte = sprites.get("other", {}).get("official-artwork", {}).get("front_default")
+    return arte or sprites.get("front_default") or ""
+
+
 @dataclass
 class Pokemon:
     numero: int
@@ -25,6 +30,7 @@ class Pokemon:
     peso_kg: float
     status: Status
     habilidades: list[str] = field(default_factory=list)
+    imagem: str = ""
 
     @classmethod
     def da_api(cls, dados: dict) -> "Pokemon":
@@ -41,6 +47,7 @@ class Pokemon:
                 defesa_especial=s["special-defense"], velocidade=s["speed"],
             ),
             habilidades=[h["ability"]["name"] for h in dados["abilities"]],
+            imagem=_imagem(dados.get("sprites", {})),
         )
 
     def resumo(self) -> str:

@@ -22,3 +22,11 @@ def test_traduzir_tipo():
     assert traduzir_tipo("Pedra") == "rock"
     assert traduzir_tipo("fire") == "fire"
     assert traduzir_tipo("xyz") is None
+
+
+def test_api_web_pagina():
+    from fastapi.testclient import TestClient
+    from web import app
+    r = TestClient(app).get("/")
+    assert r.status_code == 200
+    assert "Pokédex com IA" in r.text
